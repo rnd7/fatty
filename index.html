@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<!-- saved from url=(0027)http://goldsource.de/fatty/ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+  <style type="text/css">
+    body{
+     margin:0;
+     padding:0;
+     overflow:hidden;
+     background-color:#000500;
+    }
+    #info{
+      padding:6px;
+    }
+    h1, p{
+      font-weight:normal;
+      margin:0;
+      padding:0;
+      color:#EEEEEE;
+      font-family:sans;
+    }
+    h1{
+      font-size:12px;
+    }
+    p{
+      font-size:9px;
+    }
+  </style>
+  <title>FATTY</title>
+</head>
+<body>
+<canvas id="screen" width="640" height="480" style="position: absolute; display: block; top: 422px; left: 960px;"></canvas>
+<div id="info">
+<h1>FATTY</h1>
+<p>A: Left</p>
+<p>D: Right</p>
+<p>S: Lardass Mega Splash</p>
+<p>SPACE: Jump</p>
+</div>
+<script>
+ /*
+  * Fatty
+  * Just a tech demo. Bounce fatty!  
+  *
+  * You might use this within your work, the code is dirty and almost
+  * uncommented, just a lazy sunday project. Sorry, shame on me :-D
+  *
+  * No dependecies except for the Fatty Sprite Image.
+  *
+  * The cool wave effect is an adaption of a little Lua Script I played with
+  * some month ago. Thanks to Anko who posted it on stackexchange.
+  * http://gamedev.stackexchange.com/questions/44547/2d-water-with-dynamic-waves
+  *
+  * The images used in this demo are free to use under the terms of the Creative 
+  * Commons Attribution 4.0 International (CC BY 4.0) License.
+  * http://creativecommons.org/licenses/by/4.0/
+  * 
+  * The source code is released under the MIT License. 
+  * http://opensource.org/licenses/MIT
+  *
+  * The MIT License (MIT)
+  *
+  * Copyright (c) 2014 goldsource
+  *
+  * Permission is hereby granted, free of charge, to any person obtaining a
+  * copy of this software and associated documentation files (the "Software"),
+  * to deal in the Software without restriction, including without limitation
+  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+  * and/or sell copies of the Software, and to permit persons to whom the
+  * Software is furnished to do so, subject to the following conditions:
+  *
+  * The above copyright notice and this permission notice shall be included in
+  * all copies or substantial portions of the Software.
+  *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+  */
+  var FATTY_SPRITE = "img/fatty_sprite.png",
+  SPRING = 0.04, // springiness of the floor
+  POINTS = 255, // points of the bouncy floor
+  TENSION = 0.005, // force to zero
+  DAMPING = 0.95, // speed damping
+  ITERATIONS = 4, // wave speed (iterations per tick)
+  FPS = 60, // continous updates per second
+  HEIGHT = 480, // screen height
+  WIDTH = 640, // screen width
+  FLOOR_OFFSET = HEIGHT-100, // vertical floor position
+  cv = document.getElementById("screen"),
+  ctx = cv.getContext("2d"),
+  floor = [],
+  fatty = {
+    sprite:null,
+    x:Math.random()*WIDTH,
+    y:64,
+    w:24,
+    speed:{x:0,y:0},
+    velocity:{x:0,y:0},
+    friction:{x:0,y:0}
+  };
+  function makeFloor(count,width,offset){
+    var result = []
+    for(var n=1;n<count;n++){        
+      result.push({x:n/count*width, y:offset, speed:{x:0,y:0}, mass:1});
+    }
+    return result;
+  }
+  function updateFloor(points){
+    for (var i=0;i<ITERATIONS;i++){
+      for(var n=1;n<points.length;n++){
+        var p = points[n], 
+        force = 0;  
+        if(n == 1) force += SPRING * (points[points.length-1].y-p.y);
+        else force += SPRING * (points[n-1].y - p.y);        
+        if(n == points.length-1) force += SPRING * (points[1].y - p.y);
+        else force += SPRING * (points[n+1].y - p.y);        
+        force += TENSION * (FLOOR_OFFSET - p.y);
+        p.speed.y = DAMPING * p.speed.y + (force/p.mass);
+        p.y = p.y + p.speed.y;
+      }
+    }
+  }
+  function update(){
+    var uppermost;
+    fatty.grounded = false;  
+    fatty.velocity = {x:0,y:0};
+    fatty.x += fatty.speed.x;
+    fatty.y += fatty.speed.y;
+    // Limit
+    if(fatty.x<fatty.w){
+       fatty.x=fatty.w; 
+       if(fatty.speed.x<0)fatty.speed.x*=-0.6;
+    }
+    if(fatty.x>WIDTH-fatty.w){
+       fatty.x=WIDTH-fatty.w;
+       if(fatty.speed.x>0)fatty.speed.x*=-0.6;
+    }
+    // hittest
+    var hit = [];
+    for(var i=0;i<floor.length;i++){  
+      if(floor[i].x>fatty.x-fatty.w/2 && floor[i].x<fatty.x+fatty.w/2){
+        if(fatty.y>=floor[i].y){
+          if(!uppermost||floor[i].y<uppermost.y) uppermost = floor[i];
+          hit.push(floor[i]);
+          fatty.grounded = true;
+        }
+      }
+    }  
+    // energy transfer
+    for(var i=0;i<hit.length;i++) hit[i].speed.y+=(fatty.speed.y/hit.length)*2;    
+    updateFloor(floor);
+    if(fatty.grounded){
+      fatty.speed.y = 0;
+      fatty.velocity.y = 0;
+      fatty.friction.x = 0.8;
+      fatty.friction.y = 1;
+      fatty.y = uppermost.y; // keep him on the floor
+      if(!fatty.down){
+        if(fatty.left) fatty.velocity.x -= 1; 
+        if(fatty.right) fatty.velocity.x += 1;
+        if(fatty.jump) fatty.velocity.y -= 10;
+      }
+    }else{    
+      if(fatty.down) fatty.velocity.y += 2; 
+      if(!fatty.down){
+        if(fatty.left) fatty.velocity.x -= 0.1; 
+        if(fatty.right) fatty.velocity.x += 0.1;
+      }
+      fatty.velocity.y += 0.5; // gravity
+      fatty.friction.x = 1;
+      fatty.friction.y = 1;
+    }    
+    fatty.speed.x += fatty.velocity.x;
+    fatty.speed.x *= fatty.friction.x; 
+    fatty.speed.y += fatty.velocity.y;
+    fatty.speed.y *= fatty.friction.y;
+  }  
+  function drawFatty(){  
+    var scale = (fatty.speed.x<0)?-1:1;
+    var frames=3;
+    var frame = 0;
+    if(fatty.down) frame = 2;
+    else if(fatty.jump) frame = 1;
+    ctx.save();
+    ctx.translate(fatty.x, fatty.y);
+    ctx.scale(scale, 1);
+    ctx.drawImage(fatty.sprite, frame*64, 0, 64, 64, -32, -64, 64, 64);
+    ctx.restore();
+  }  
+  function drawFloor(points){
+    if(points.length<=0)return;
+    ctx.beginPath(); 
+    ctx.strokeStyle='rgba(255,255,255,1)';
+    ctx.moveTo(points[0].x,points[0].y);
+    for(var n=0;n<points.length;n++)ctx.lineTo(points[n].x,points[n].y);
+    ctx.stroke();
+  }  
+  function loop(){  
+    ctx.clearRect(0,0,WIDTH,HEIGHT);
+    update();
+    drawFloor(floor);
+    drawFatty();
+    setTimeout(loop,1000/FPS);
+  }
+  function resize(){
+    var window_width, window_height, canvas_x, canvas_y;
+    window_width = window.innerWidth || 
+      document.documentElement.clientWidth ||
+      document.getElementsByTagName('body')[0].clientWidth;
+    window_height = window.innerHeight ||
+      document.documentElement.clientHeight ||
+      document.getElementsByTagName('body')[0].clientHeight;
+    canvas_y = (window_height-HEIGHT)/2;
+    canvas_x = (window_width-WIDTH)/2;    
+    cv.style.top = canvas_y+"px";
+    cv.style.left = canvas_x+"px";
+  }  
+  function onKeyDown(e){
+    if(e.keyCode==87){ //w
+      fatty.up=true;
+    }else if(e.keyCode == 65){ // a  
+      fatty.left=true;
+    }else if(e.keyCode == 83){ // s 
+      fatty.down=true;
+    }else if(e.keyCode == 68){ // d
+      fatty.right=true;    
+    }else if(e.keyCode == 32){ // SPACE 
+      fatty.jump=true;    
+    }
+  }
+  function onKeyUp(e){
+    if(e.keyCode==87){ //w
+      fatty.up=false;
+    }else if(e.keyCode == 65){ //a  
+      fatty.left=false;  
+    }else if(e.keyCode == 83){ //s 
+      fatty.down=false;
+    }else if(e.keyCode == 68){ //d
+      fatty.right=false;    
+    }else if(e.keyCode == 32){ //SPACE
+      fatty.jump=false;    
+    }
+  } 
+  function init(){
+    cv.width = ctx.width = WIDTH;          
+    cv.height = ctx.height = HEIGHT;
+    cv.style.position = "absolute";
+    cv.style.display = "block";
+    cv.setAttribute("width", WIDTH);
+    cv.setAttribute("height", HEIGHT);
+    resize();
+    floor = makeFloor(POINTS,WIDTH,FLOOR_OFFSET);
+    window.addEventListener('resize', resize, false); 
+    window.addEventListener('keydown', onKeyDown, false); 
+    window.addEventListener('keyup', onKeyUp, false); 
+    loop();
+  } 
+  function load(){
+    fatty.sprite = new Image();
+    fatty.sprite.src = FATTY_SPRITE;
+    fatty.sprite.onload = onImageLoad;
+  }
+  function onImageLoad(e){
+    init();
+  }
+  load();
+</script>
+
+
+</body></html>
