@@ -2,7 +2,7 @@
 Just a lazy sunday project. Dynamic floor jump and run proof of concept.
 
 ## Run
-Open index.html in your browser or navigate to [frtr](https://rnd7.github.io/fatty/)
+Open index.html in your browser or navigate to [FATTY](https://rnd7.github.io/fatty/)
 
 ## License
 
